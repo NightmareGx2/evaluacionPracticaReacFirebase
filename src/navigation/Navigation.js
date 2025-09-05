@@ -20,10 +20,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/**
- * Navegador de tabs para usuarios autenticados
- * Incluye las pantallas principales de la aplicación
- */
+//Navegador de tabs para usuarios autenticados-Incluye las pantallas principales de la aplicación
 const MainTabNavigator = () => {
     return (
         <Tab.Navigator
@@ -68,9 +65,7 @@ const MainTabNavigator = () => {
     );
 };
 
-/**
- * Navegador Stack para la sección Home (mantiene la funcionalidad existente)
- */
+//Navegador Stack para la sección Home (mantiene la funcionalidad existente)
 const HomeStackNavigator = () => {
     return (
         <Stack.Navigator>
@@ -91,9 +86,7 @@ const HomeStackNavigator = () => {
     );
 };
 
-/**
- * Componente de navegación principal que maneja autenticación
- */
+//Componente de navegación principal que maneja autenticación
 const AppNavigator = () => {
     const { user, loading } = useAuth();
 
@@ -118,9 +111,7 @@ const AppNavigator = () => {
     );
 };
 
-/**
- * Componente raíz de navegación que incluye el proveedor de autenticación
- */
+//Componente raíz de navegación que incluye el proveedor de autenticación
 const Navigation = () => {
     return (
         <AuthProvider>

@@ -16,10 +16,8 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 
 import { auth, database } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-/**
- * Componente ProfileScreen
- * Pantalla para editar la información del perfil del usuario y cambiar contraseña
- */
+//Componente ProfileScreen - Pantalla para editar la información del perfil del usuario y cambiar contraseña
+
 const ProfileScreen = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' o 'password'
@@ -39,9 +37,8 @@ const ProfileScreen = () => {
     confirmPassword: '',
   });
 
-  /**
-   * Función para obtener los datos actuales del usuario desde Firestore
-   */
+  // Función para obtener los datos actuales del usuario desde Firestore
+   
   const fetchUserData = async () => {
     if (!user) return;
 
@@ -61,9 +58,8 @@ const ProfileScreen = () => {
     }
   };
 
-  /**
-   * Función para actualizar información del perfil
-   */
+  // Función para actualizar información del perfil
+   
   const updateProfileField = (field, value) => {
     setProfileData(prev => ({
       ...prev,
@@ -71,9 +67,7 @@ const ProfileScreen = () => {
     }));
   };
 
-  /**
-   * Función para actualizar campos de contraseña
-   */
+  // Función para actualizar campos de contraseña
   const updatePasswordField = (field, value) => {
     setPasswordData(prev => ({
       ...prev,
@@ -81,9 +75,7 @@ const ProfileScreen = () => {
     }));
   };
 
-  /**
-   * Función para validar el formulario de perfil
-   */
+  // Función para validar el formulario de perfil
   const validateProfileForm = () => {
     const { nombre, tituloUniversitario, anoGraduacion } = profileData;
 
@@ -102,9 +94,7 @@ const ProfileScreen = () => {
     return true;
   };
 
-  /**
-   * Función para validar el formulario de contraseña
-   */
+  // Función para validar el formulario de contraseña
   const validatePasswordForm = () => {
     const { currentPassword, newPassword, confirmPassword } = passwordData;
 
@@ -131,9 +121,7 @@ const ProfileScreen = () => {
     return true;
   };
 
-  /**
-   * Función para actualizar el perfil del usuario
-   */
+  // Función para actualizar el perfil del usuario
   const handleUpdateProfile = async () => {
     if (!validateProfileForm()) return;
 
@@ -155,9 +143,7 @@ const ProfileScreen = () => {
     }
   };
 
-  /**
-   * Función para cambiar la contraseña
-   */
+  // Función para cambiar la contraseña
   const handleChangePassword = async () => {
     if (!validatePasswordForm()) return;
 
@@ -202,9 +188,7 @@ const ProfileScreen = () => {
     }
   };
 
-  /**
-   * Función para cerrar sesión
-   */
+  // Función para cerrar sesión
   const handleLogout = () => {
     Alert.alert(
       'Cerrar Sesión',

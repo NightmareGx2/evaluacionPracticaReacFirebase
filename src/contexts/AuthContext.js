@@ -5,9 +5,7 @@ import { auth } from '../config/firebase';
 // Crear contexto de autenticación
 const AuthContext = createContext();
 
-/**
- * Hook personalizado para usar el contexto de autenticación
- */
+//Hook personalizado para usar el contexto de autenticación
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -16,10 +14,7 @@ export const useAuth = () => {
   return context;
 };
 
-/**
- * Proveedor del contexto de autenticación
- * Maneja el estado global del usuario autenticado
- */
+//Proveedor del contexto de autenticación-Maneja el estado global del usuario autenticado
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

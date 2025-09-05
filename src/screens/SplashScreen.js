@@ -3,10 +3,7 @@ import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-/**
- * Componente SplashScreen
- * Pantalla de carga que se muestra al iniciar la aplicación
- */
+//Componente SplashScreen-Pantalla de carga que se muestra al iniciar la aplicación
 const SplashScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;

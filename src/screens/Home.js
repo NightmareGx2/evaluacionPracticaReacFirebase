@@ -14,9 +14,8 @@ const Home = ({ navigation }) => {
     // Obtener usuario del contexto de autenticación
     const { user } = useAuth();
 
-    /**
-     * Función para obtener los datos del usuario desde Firestore
-     */
+    //Función para obtener los datos del usuario desde Firestore
+
     const fetchUserData = async () => {
         if (!user) return;
 
