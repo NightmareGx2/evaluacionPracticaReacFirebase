@@ -27,17 +27,18 @@ const handleUpdate = async (id, vendido) => {
     }
 };
 
-// Componente funcional que representa una tarjeta de producto (sin imagen)
+// Componente funcional que representa una tarjeta de producto
 const CardProductos = ({ id, nombre, precio, vendido }) => {
     return (
         <View style={styles.card}>
-            <View style={styles.productInfo}>
-                <Text style={styles.nombre}>{nombre}</Text>
-                <Text style={styles.precio}>${precio}</Text>
-                <Text style={[styles.estado, vendido ? styles.vendido : styles.disponible]}>
+            <Text style={styles.nombre}>{nombre}</Text>
+            <Text style={styles.precio}>${precio.toFixed(2)}</Text>
+            <View style={styles.statusContainer}>
+                <Text style={[styles.status, vendido ? styles.vendido : styles.disponible]}>
                     {vendido ? "Vendido" : "Disponible"}
                 </Text>
             </View>
+            
             <View style={styles.buttonContainer}>
                 <TouchableOpacity
                     style={styles.deleteButton}
@@ -61,16 +62,15 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: '#fff',
         padding: 20,
-        margin: 10,
+        marginBottom: 15,
         borderRadius: 12,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        elevation: 4,
-    },
-    productInfo: {
-        marginBottom: 15,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+        borderLeftWidth: 4,
+        borderLeftColor: '#0288d1',
     },
     nombre: {
         fontSize: 20,
@@ -80,40 +80,49 @@ const styles = StyleSheet.create({
     },
     precio: {
         fontSize: 18,
-        marginBottom: 8,
-        color: '#0288d1',
         fontWeight: '600',
+        marginBottom: 12,
+        color: '#0288d1',
     },
-    estado: {
+    statusContainer: {
+        marginBottom: 15,
+    },
+    status: {
         fontSize: 16,
         fontWeight: 'bold',
-        textAlign: 'center',
-        paddingVertical: 6,
         paddingHorizontal: 12,
+        paddingVertical: 6,
         borderRadius: 20,
+        textAlign: 'center',
         overflow: 'hidden',
     },
     vendido: {
-        backgroundColor: '#ffebee',
-        color: '#d32f2f',
+        color: '#dc3545',
+        backgroundColor: '#f8d7da',
     },
     disponible: {
-        backgroundColor: '#e8f5e8',
-        color: '#388e3c',
+        color: '#28a745',
+        backgroundColor: '#d4edda',
     },
     buttonContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 15,
         gap: 10,
     },
     deleteButton: {
-        backgroundColor: '#f44336',
+        backgroundColor: '#dc3545',
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 8,
         flex: 1,
-        maxWidth: '45%',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     deleteButtonText: {
         color: '#fff',
@@ -126,7 +135,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderRadius: 8,
         flex: 1,
-        maxWidth: '45%',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     updateButtonText: {
         color: '#fff',
@@ -135,10 +151,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     venderButton: {
-        backgroundColor: '#4caf50',
+        backgroundColor: '#28a745',
     },
     regresarButton: {
-        backgroundColor: '#ff9800',
+        backgroundColor: '#fd7e14',
     },
 });
 

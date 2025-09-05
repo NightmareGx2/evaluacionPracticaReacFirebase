@@ -11,34 +11,23 @@ const Home = ({ navigation }) => {
     const [productos, setProductos] = useState([]);
     // Estado para almacenar información del usuario
     const [userData, setUserData] = useState(null);
-    const [loading, setLoading] = useState(true);
     // Obtener usuario del contexto de autenticación
     const { user } = useAuth();
 
-    //Función para obtener los datos del usuario desde Firestore
+    // Función para obtener los datos del usuario desde Firestore
     const fetchUserData = async () => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
+        if (!user) return;
 
         try {
             const userDoc = await getDoc(doc(database, 'users', user.uid));
             if (userDoc.exists()) {
-                const data = userDoc.data();
-                setUserData(data);
-                console.log('Datos del usuario cargados:', data);
+                setUserData(userDoc.data());
+                console.log('Datos del usuario cargados:', userDoc.data());
             } else {
-                console.log('No se encontraron datos del usuario en Firestore');
-                // Si no hay datos en Firestore, usar el email como fallback
-                setUserData({ nombre: user.email.split('@')[0] });
+                console.log('No se encontraron datos del usuario');
             }
         } catch (error) {
             console.error('Error al obtener datos del usuario:', error);
-            // En caso de error, usar el email como fallback
-            setUserData({ nombre: user.email.split('@')[0] });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -80,21 +69,13 @@ const Home = ({ navigation }) => {
         />
     );
 
-    // Función para obtener el nombre a mostrar
-    const getDisplayName = () => {
-        if (loading) return 'Cargando...';
-        if (userData?.nombre) return userData.nombre;
-        if (user?.email) return user.email.split('@')[0];
-        return 'Usuario';
-    };
-
     // Renderiza la interfaz del componente Home
     return (
         <View style={styles.container}>
             {/* Header con información del usuario */}
             <View style={styles.header}>
                 <Text style={styles.welcomeText}>
-                    ¡Bienvenido, {getDisplayName()}!
+                    ¡Bienvenido, {userData?.nombre || 'Usuario'}!
                 </Text>
                 <Text style={styles.storeTitle}>MiTienda - Productos Disponibles</Text>
             </View>

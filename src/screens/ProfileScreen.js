@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -17,7 +16,8 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 
 import { auth, database } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// Componente ProfileScreen - Pantalla para editar la información del perfil del usuario y cambiar contraseña
+// Componente ProfileScreen
+// Pantalla para editar la información del perfil del usuario y cambiar contraseña
 const ProfileScreen = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' o 'password'
@@ -40,33 +40,22 @@ const ProfileScreen = () => {
 
   // Función para obtener los datos actuales del usuario desde Firestore
   const fetchUserData = async () => {
-    if (!user) {
-      setDataLoading(false);
-      return;
-    }
+    if (!user) return;
 
-    setDataLoading(true);
     try {
-      console.log('Obteniendo datos para usuario:', user.uid);
-      const userDocRef = doc(database, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
+      setDataLoading(true);
+      const userDoc = await getDoc(doc(database, 'users', user.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
-        console.log('Datos obtenidos de Firestore:', data);
+        console.log('Datos del usuario obtenidos:', data);
         setProfileData({
           nombre: data.nombre || '',
           tituloUniversitario: data.tituloUniversitario || '',
-          anoGraduacion: data.anoGraduacion ? data.anoGraduacion.toString() : '',
+          anoGraduacion: data.anoGraduacion?.toString() || '',
         });
       } else {
-        console.log('No se encontró documento del usuario en Firestore');
-        // Inicializar con datos vacíos si no existe el documento
-        setProfileData({
-          nombre: '',
-          tituloUniversitario: '',
-          anoGraduacion: '',
-        });
+        console.log('No se encontraron datos del usuario');
+        Alert.alert('Aviso', 'No se encontraron datos del usuario. Por favor complete su perfil.');
       }
     } catch (error) {
       console.error('Error al obtener datos del usuario:', error);
@@ -104,7 +93,7 @@ const ProfileScreen = () => {
     const currentYear = new Date().getFullYear();
     const graduationYear = parseInt(anoGraduacion);
     if (isNaN(graduationYear) || graduationYear < 1950 || graduationYear > currentYear + 10) {
-      Alert.alert('Error', 'Por favor ingrese un año de graduación válido (1950 - ' + (currentYear + 10) + ')');
+      Alert.alert('Error', 'Por favor ingrese un año de graduación válido');
       return false;
     }
 
@@ -144,21 +133,17 @@ const ProfileScreen = () => {
 
     setLoading(true);
     try {
-      const userDocRef = doc(database, 'users', user.uid);
-      const updateData = {
+      await updateDoc(doc(database, 'users', user.uid), {
         nombre: profileData.nombre.trim(),
         tituloUniversitario: profileData.tituloUniversitario.trim(),
         anoGraduacion: parseInt(profileData.anoGraduacion),
-        email: user.email, // Mantener el email
         updatedAt: new Date().toISOString(),
-      };
+      });
 
-      await updateDoc(userDocRef, updateData);
-      console.log('Perfil actualizado correctamente');
       Alert.alert('Éxito', 'Perfil actualizado correctamente');
     } catch (error) {
       console.error('Error al actualizar perfil:', error);
-      Alert.alert('Error', 'No se pudo actualizar el perfil. Intente nuevamente.');
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
     } finally {
       setLoading(false);
     }
@@ -191,7 +176,6 @@ const ProfileScreen = () => {
       
       switch (error.code) {
         case 'auth/wrong-password':
-        case 'auth/invalid-credential':
           errorMessage = 'La contraseña actual es incorrecta';
           break;
         case 'auth/weak-password':
@@ -237,14 +221,15 @@ const ProfileScreen = () => {
   };
 
   useEffect(() => {
-    fetchUserData();
+    if (user) {
+      fetchUserData();
+    }
   }, [user]);
 
   if (dataLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0288d1" />
-        <Text style={styles.loadingText}>Cargando datos del perfil...</Text>
+      <View style={[styles.container, styles.loadingContainer]}>
+        <Text style={styles.loadingText}>Cargando datos del usuario...</Text>
       </View>
     );
   }
@@ -266,9 +251,7 @@ const ProfileScreen = () => {
         {/* Información del usuario */}
         <View style={styles.userInfo}>
           <Text style={styles.userEmail}>{user?.email}</Text>
-          <Text style={styles.userName}>
-            {profileData.nombre || 'Complete su información de perfil'}
-          </Text>
+          <Text style={styles.userName}>{profileData.nombre || 'Nombre no disponible'}</Text>
         </View>
 
         {/* Tabs */}
@@ -292,9 +275,9 @@ const ProfileScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Formulario de Información Personal */}
-        {activeTab === 'profile' && (
-          <View style={styles.formSection}>
+        {/* Contenido del tab activo */}
+        {activeTab === 'profile' ? (
+          <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Nombre completo:</Text>
               <TextInput
@@ -329,21 +312,26 @@ const ProfileScreen = () => {
               />
             </View>
 
+            <View style={styles.emailContainer}>
+              <Text style={styles.emailLabel}>Correo electrónico:</Text>
+              <Text style={styles.emailValue}>{user?.email}</Text>
+              <Text style={styles.emailNote}>
+                El correo electrónico no se puede modificar
+              </Text>
+            </View>
+
             <TouchableOpacity
-              style={[styles.saveButton, loading && styles.buttonDisabled]}
+              style={[styles.updateButton, loading && styles.buttonDisabled]}
               onPress={handleUpdateProfile}
               disabled={loading}
             >
-              <Text style={styles.saveButtonText}>
-                {loading ? 'Guardando...' : 'Guardar Cambios'}
+              <Text style={styles.updateButtonText}>
+                {loading ? 'Actualizando...' : 'Actualizar Perfil'}
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-
-        {/* Formulario de Cambio de Contraseña */}
-        {activeTab === 'password' && (
-          <View style={styles.formSection}>
+        ) : (
+          <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Contraseña actual:</Text>
               <TextInput
@@ -377,12 +365,19 @@ const ProfileScreen = () => {
               />
             </View>
 
+            <View style={styles.passwordNote}>
+              <Text style={styles.passwordNoteText}>
+                • La contraseña debe tener al menos 6 caracteres{'\n'}
+                • Debe ser diferente a la contraseña actual
+              </Text>
+            </View>
+
             <TouchableOpacity
-              style={[styles.saveButton, loading && styles.buttonDisabled]}
+              style={[styles.updateButton, loading && styles.buttonDisabled]}
               onPress={handleChangePassword}
               disabled={loading}
             >
-              <Text style={styles.saveButtonText}>
+              <Text style={styles.updateButtonText}>
                 {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
               </Text>
             </TouchableOpacity>
@@ -398,15 +393,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
   scrollContainer: {
     flexGrow: 1,
     padding: 20,
-    paddingTop: 40,
+    paddingTop: 50,
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
-    position: 'relative',
   },
   title: {
     fontSize: 28,
@@ -421,12 +423,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   logoutButton: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    backgroundColor: '#f44336',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   logoutButtonText: {
@@ -446,8 +445,8 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
   },
   userEmail: {
     fontSize: 16,
@@ -455,42 +454,45 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 20,
-    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tab: {
     flex: 1,
     paddingVertical: 15,
+    paddingHorizontal: 10,
     alignItems: 'center',
   },
   activeTab: {
     backgroundColor: '#0288d1',
+    borderRadius: 8,
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#666',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   activeTabText: {
     color: 'white',
+    fontWeight: '600',
   },
-  formSection: {
+  form: {
     backgroundColor: 'white',
     padding: 20,
     borderRadius: 12,
@@ -521,7 +523,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff',
   },
-  saveButton: {
+  emailContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  emailLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: 5,
+  },
+  emailValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  emailNote: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  passwordNote: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  passwordNoteText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  updateButton: {
     backgroundColor: '#0288d1',
     paddingVertical: 15,
     borderRadius: 8,
@@ -531,21 +567,10 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: '#cccccc',
   },
-  saveButtonText: {
+  updateButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#666',
   },
 });
 

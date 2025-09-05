@@ -14,7 +14,8 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, database } from '../config/firebase';
 
-//Componente RegisterScreen-Pantalla para el registro de nuevos usuarios
+// Componente RegisterScreen
+// Pantalla para el registro de nuevos usuarios
 const RegisterScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
     nombre: '',
@@ -26,7 +27,9 @@ const RegisterScreen = ({ navigation }) => {
   });
   const [loading, setLoading] = useState(false);
 
-  // Función para actualizar los campos del formulario
+  /**
+   * Función para actualizar los campos del formulario
+   */
   const updateField = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -34,7 +37,9 @@ const RegisterScreen = ({ navigation }) => {
     }));
   };
 
-  //Función para validar el formulario
+  /**
+   * Función para validar el formulario
+   */
   const validateForm = () => {
     const { nombre, email, password, confirmPassword, tituloUniversitario, anoGraduacion } = formData;
 
@@ -63,7 +68,9 @@ const RegisterScreen = ({ navigation }) => {
     return true;
   };
 
-  //Función para manejar el registro de usuario
+  /**
+   * Función para manejar el registro de usuario
+   */
   const handleRegister = async () => {
     if (!validateForm()) return;
 

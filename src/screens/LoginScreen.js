@@ -13,13 +13,14 @@ import {
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
-//Componente LoginScreen-Pantalla de inicio de sesión para usuarios registrados
+// Componente LoginScreen
+// Pantalla de inicio de sesión para usuarios registrados
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  //Función para manejar el inicio de sesión
+  // Función para manejar el inicio de sesión
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Por favor complete todos los campos');
@@ -30,7 +31,6 @@ const LoginScreen = ({ navigation }) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log('Usuario logueado exitosamente');
-      // La navegación se maneja automáticamente por el AuthContext
     } catch (error) {
       console.error('Error al iniciar sesión:', error);
       let errorMessage = 'Error al iniciar sesión';

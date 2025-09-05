@@ -4,11 +4,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 
-// Importar screens existentes
+
 import Home from '../screens/Home';
 import Add from '../screens/Add';
-
-// Importar nuevas screens para autenticación
 import SplashScreen from '../screens/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -20,7 +18,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-//Navegador de tabs para usuarios autenticados-Incluye las pantallas principales de la aplicación
+//Navegador de tabs para usuarios autenticados
 const MainTabNavigator = () => {
     return (
         <Tab.Navigator
@@ -65,7 +63,7 @@ const MainTabNavigator = () => {
     );
 };
 
-//Navegador Stack para la sección Home (mantiene la funcionalidad existente)
+//Navegador Stack para la sección Home
 const HomeStackNavigator = () => {
     return (
         <Stack.Navigator>
@@ -86,7 +84,7 @@ const HomeStackNavigator = () => {
     );
 };
 
-//Componente de navegación principal que maneja autenticación
+// Componente de navegación principal que maneja autenticación
 const AppNavigator = () => {
     const { user, loading } = useAuth();
 
