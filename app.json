@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "practica-firebase",
+    "slug": "practica-firebase",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/coffee-cup-splash.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/coffee-cup-splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/coffee-cup-splash.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
