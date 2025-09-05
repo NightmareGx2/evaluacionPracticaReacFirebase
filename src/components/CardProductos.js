@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { database } from '../config/firebase';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
@@ -27,20 +27,17 @@ const handleUpdate = async (id, vendido) => {
     }
 };
 
-// Componente funcional que representa una tarjeta de producto
-const CardProductos = ({ id, nombre, precio, vendido, imagen }) => {
+// Componente funcional que representa una tarjeta de producto (sin imagen)
+const CardProductos = ({ id, nombre, precio, vendido }) => {
     return (
         <View style={styles.card}>
-            <Text style={styles.nombre}>{nombre}</Text>
-            <Text style={styles.text}>${precio}</Text>
-            <Text style={[styles.text, vendido ? styles.vendido : styles.disponible]}>
-                {vendido ? "Vendido" : "Disponible"}
-            </Text>
-            {imagen ? (
-                <Image source={{ uri: imagen }} style={styles.image} />
-            ) : (
-                <Text style={styles.text}>No Image Available</Text>
-            )}
+            <View style={styles.productInfo}>
+                <Text style={styles.nombre}>{nombre}</Text>
+                <Text style={styles.precio}>${precio}</Text>
+                <Text style={[styles.estado, vendido ? styles.vendido : styles.disponible]}>
+                    {vendido ? "Vendido" : "Disponible"}
+                </Text>
+            </View>
             <View style={styles.buttonContainer}>
                 <TouchableOpacity
                     style={styles.deleteButton}
@@ -51,7 +48,7 @@ const CardProductos = ({ id, nombre, precio, vendido, imagen }) => {
                     style={[styles.updateButton, vendido ? styles.regresarButton : styles.venderButton]}
                     onPress={() => handleUpdate(id, vendido)}>
                     <Text style={styles.updateButtonText}>
-                        {vendido ? "Devolver Producto" : "Vender"}
+                        {vendido ? "Devolver" : "Vender"}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -63,61 +60,79 @@ const CardProductos = ({ id, nombre, precio, vendido, imagen }) => {
 const styles = StyleSheet.create({
     card: {
         backgroundColor: '#fff',
-        padding: 15,
+        padding: 20,
         margin: 10,
-        borderRadius: 10,
+        borderRadius: 12,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    productInfo: {
+        marginBottom: 15,
     },
     nombre: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 10,
+        marginBottom: 8,
+        color: '#333',
     },
-    text: {
+    precio: {
+        fontSize: 18,
+        marginBottom: 8,
+        color: '#0288d1',
+        fontWeight: '600',
+    },
+    estado: {
         fontSize: 16,
-        marginBottom: 5,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        overflow: 'hidden',
     },
     vendido: {
-        color: 'red',
-        fontWeight: 'bold',
+        backgroundColor: '#ffebee',
+        color: '#d32f2f',
     },
     disponible: {
-        color: 'green',
-        fontWeight: 'bold',
-    },
-    image: {
-        width: '100%',
-        height: 200,
-        borderRadius: 10,
-        marginBottom: 10,
+        backgroundColor: '#e8f5e8',
+        color: '#388e3c',
     },
     buttonContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 10,
+        marginTop: 15,
+        gap: 10,
     },
     deleteButton: {
-        backgroundColor: '#ff4d4d',
-        padding: 10,
-        borderRadius: 5,
+        backgroundColor: '#f44336',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        flex: 1,
+        maxWidth: '45%',
     },
     deleteButtonText: {
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
+        fontSize: 14,
     },
     updateButton: {
-        padding: 10,
-        borderRadius: 5,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        flex: 1,
+        maxWidth: '45%',
     },
     updateButtonText: {
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
+        fontSize: 14,
     },
     venderButton: {
         backgroundColor: '#4caf50',

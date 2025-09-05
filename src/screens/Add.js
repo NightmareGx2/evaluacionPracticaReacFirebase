@@ -1,117 +1,108 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
 import { database } from '../config/firebase';
-//import { database, storage } from '../config/firebase';
-//import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc } from 'firebase/firestore';
-import * as ImagePicker from 'expo-image-picker';
 
-// Componente Add para agregar un nuevo producto
+// Componente Add para agregar un nuevo producto (sin soporte de imágenes)
 const Add = ({ navigation }) => {
-    // Estado inicial del producto
+    // Estado inicial del producto (simplificado)
     const [producto, setProducto] = useState({
         nombre: '',
-        precio: 0,
+        precio: '',
         vendido: false,
-        creado: new Date(),
-        imagen: ''
+        creado: new Date()
     });
 
     // Función para navegar a la pantalla de inicio
     const goToHome = () => {
-    navigation.goBack();
+        navigation.goBack();
     };
 
-    // Función para abrir la galería de imágenes del dispositivo
-    const openGalery = async () => {
-        try {
-            let result = await ImagePicker.launchImageLibraryAsync({
-               mediaTypes: ImagePicker.MediaTypeOptions.All,
-                allowsEditing: true,
-                aspect: [8, 8],
-                quality: 1,
-            });
-
-            if (!result.canceled && result.assets.length > 0) {
-                setProducto({
-                    ...producto,
-                    imagen: result.assets[0].uri
-                });
-                console.log('Imagen seleccionada:', result.assets[0].uri);
-            }
-        } catch (error) {
-            console.log('Error al abrir la galería', error);
+    // Función para validar el formulario
+    const validateForm = () => {
+        if (!producto.nombre.trim()) {
+            Alert.alert('Error', 'Por favor ingrese un nombre para el producto');
+            return false;
         }
+
+        if (!producto.precio.trim()) {
+            Alert.alert('Error', 'Por favor ingrese un precio para el producto');
+            return false;
+        }
+
+        const precio = parseFloat(producto.precio);
+        if (isNaN(precio) || precio < 0) {
+            Alert.alert('Error', 'Por favor ingrese un precio válido');
+            return false;
+        }
+
+        return true;
     };
 
     // Función para agregar el producto a Firestore
     const agregarProducto = async () => {
+        if (!validateForm()) return;
+
         try {
-            let imageUrl = "Storage ya no es gratuito";
+            const productoData = {
+                nombre: producto.nombre.trim(),
+                precio: parseFloat(producto.precio),
+                vendido: false,
+                creado: new Date()
+            };
 
-          /*  if (producto.imagen) {
-                console.log('Subiendo imagen a Firebase Storage...');
-                const imageRef = ref(storage, `images/${Date.now()}-${producto.nombre}`);
+            await addDoc(collection(database, 'productos'), productoData);
+            console.log('Producto guardado exitosamente');
 
-                const response = await fetch(producto.imagen);
-                const blob = await response.blob();
-
-                console.log('Antes del uploadBytes');
-                const snapshot = await uploadBytes(imageRef, blob);
-                console.log('Snapshot después del uploadBytes:', snapshot);
-
-                imageUrl = await getDownloadURL(snapshot.ref);
-                console.log("URL de la imagen:", imageUrl);
-            }
-*/
-            //console.log('Datos del producto:', {...producto, imagen: imageUrl});
-            //console.log('Datos del producto:', {...producto});
-            await addDoc(collection(database, 'productos'), {...producto, imagen: imageUrl});
-            console.log('Se guardó la colección');
-
-            Alert.alert('Producto agregado', 'El producto se agregó correctamente', [
+            Alert.alert('Éxito', 'El producto se agregó correctamente', [
                 { text: 'Ok', onPress: goToHome },
             ]);
 
         } catch (error) {
-            console.error('Error al agregar el producto', error);
+            console.error('Error al agregar el producto:', error);
             Alert.alert('Error', 'Ocurrió un error al agregar el producto. Por favor, intenta nuevamente.');
         }
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Agregar producto</Text>
-            <View style={styles.inputContainer}>
-                <Text style={styles.label}>Nombre:</Text>
-                <TextInput
-                    style={styles.input}
-                    onChangeText={text => setProducto({ ...producto, nombre: text })}
-                    value={producto.nombre}
-                />
+            <View style={styles.header}>
+                <Text style={styles.title}>Agregar Producto</Text>
+                <Text style={styles.subtitle}>Complete la información del producto</Text>
             </View>
-            <View style={styles.inputContainer}>
-                <Text style={styles.label}>Precio:</Text>
-                <TextInput
-                    style={styles.input}
-                    onChangeText={text => setProducto({ ...producto, precio: parseFloat(text) })}
-                    value={producto.precio}
-                    keyboardType='numeric'
-                />
+            
+            <View style={styles.form}>
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Nombre del producto:</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Ej: Laptop Dell"
+                        onChangeText={text => setProducto({ ...producto, nombre: text })}
+                        value={producto.nombre}
+                        maxLength={50}
+                    />
+                </View>
+                
+                <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Precio (USD):</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="0.00"
+                        onChangeText={text => setProducto({ ...producto, precio: text })}
+                        value={producto.precio}
+                        keyboardType='numeric'
+                        maxLength={10}
+                    />
+                </View>
+
+                <TouchableOpacity style={styles.addButton} onPress={agregarProducto}>
+                    <Text style={styles.addButtonText}>✅ Agregar Producto</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.cancelButton} onPress={goToHome}>
+                    <Text style={styles.cancelButtonText}>❌ Cancelar</Text>
+                </TouchableOpacity>
             </View>
-            <Text>Imagen:</Text>
-            <TouchableOpacity onPress={openGalery} style={styles.imagePicker}>
-                <Text style={styles.imagePickerText}>Seleccionar Imagen</Text>
-            </TouchableOpacity>
-            {producto.imagen ? <Image source={{ uri: producto.imagen }} style={styles.imagePreview} /> : null}
-
-            <TouchableOpacity style={styles.button} onPress={agregarProducto}>
-                <Text style={styles.buttonText}>Agregar producto</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.button} onPress={goToHome}>
-                <Text style={styles.buttonText}>Volver a home</Text>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -122,70 +113,90 @@ export default Add;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#f8f9fa',
         padding: 20,
+        paddingTop: 50,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 30,
     },
     title: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 'bold',
-        marginBottom: 20,
+        color: '#333',
+        marginBottom: 8,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#666',
         textAlign: 'center',
     },
-    input: {
-        height: 40,
-        borderColor: '#ccc',
-        borderWidth: 1,
-        borderRadius: 4,
-        paddingLeft: 8,
-        backgroundColor: '#fff',
+    form: {
+        backgroundColor: 'white',
+        padding: 25,
+        borderRadius: 15,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 2,
-        width: '100%'
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
     },
-    imagePicker: {
-        backgroundColor: '#0288d1',
-        padding: 10,
-        borderRadius: 5,
-        alignItems: 'center',
+    inputContainer: {
         marginBottom: 20,
-        width: '100%',
-    },
-    imagePickerText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    imagePreview: {
-        width: 100,
-        height: 100,
-        marginBottom: 20,
-    },
-    button: {
-        backgroundColor: '#0288d1',
-        padding: 10,
-        borderRadius: 5,
-        marginTop: 20,
-        width: '100%',
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        textAlign: 'center',
     },
     label: {
         fontSize: 16,
-        marginBottom: 8,
+        fontWeight: '600',
         color: '#333',
+        marginBottom: 8,
     },
-    inputContainer: {
-        width: '100%',
-        padding: 16,
-        backgroundColor: '#f8f9fa',
-        marginBottom: 16,
+    input: {
+        height: 50,
+        borderColor: '#ddd',
+        borderWidth: 1.5,
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        backgroundColor: '#fff',
+        fontSize: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    addButton: {
+        backgroundColor: '#4caf50',
+        paddingVertical: 15,
+        borderRadius: 10,
+        marginTop: 20,
+        marginBottom: 15,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    addButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    cancelButton: {
+        backgroundColor: '#f44336',
+        paddingVertical: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    cancelButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
 });
