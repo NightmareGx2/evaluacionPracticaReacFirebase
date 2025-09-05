@@ -7,22 +7,19 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { auth, database } from '../config/firebase';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { auth, database, checkFirebaseConnection, reinitializeFirestoreConnection } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
-// Componente ProfileScreen
-// Pantalla para editar la información del perfil del usuario y cambiar contraseña
 const ProfileScreen = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' o 'password'
   const [loading, setLoading] = useState(false);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState('checking');
+  const [error, setError] = useState(null);
   
   // Estados para información del perfil
   const [profileData, setProfileData] = useState({
@@ -31,395 +28,303 @@ const ProfileScreen = () => {
     anoGraduacion: '',
   });
 
-  // Estados para cambio de contraseña
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-
-  // Función para obtener los datos actuales del usuario desde Firestore
-  const fetchUserData = async () => {
-    if (!user) return;
-
+  /**
+   * Función para verificar y establecer conexión
+   */
+  const establishConnection = async () => {
+    console.log('🔄 Estableciendo conexión...');
+    setConnectionStatus('connecting');
+    setError(null);
+    
     try {
-      setDataLoading(true);
-      const userDoc = await getDoc(doc(database, 'users', user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        console.log('Datos del usuario obtenidos:', data);
-        setProfileData({
-          nombre: data.nombre || '',
-          tituloUniversitario: data.tituloUniversitario || '',
-          anoGraduacion: data.anoGraduacion?.toString() || '',
-        });
-      } else {
-        console.log('No se encontraron datos del usuario');
-        Alert.alert('Aviso', 'No se encontraron datos del usuario. Por favor complete su perfil.');
+      // Primero verificar conexión
+      const isConnected = await checkFirebaseConnection();
+      
+      if (!isConnected) {
+        console.log('🔄 Primera conexión falló, reinicializando...');
+        const reconnected = await reinitializeFirestoreConnection();
+        
+        if (!reconnected) {
+          throw new Error('No se pudo establecer conexión con Firebase');
+        }
       }
+      
+      setConnectionStatus('connected');
+      console.log('✅ Conexión establecida exitosamente');
+      return true;
+      
     } catch (error) {
-      console.error('Error al obtener datos del usuario:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del usuario');
-    } finally {
-      setDataLoading(false);
+      console.error('❌ Error estableciendo conexión:', error);
+      setConnectionStatus('failed');
+      setError(error.message);
+      return false;
     }
   };
 
-  // Función para actualizar información del perfil
-  const updateProfileField = (field, value) => {
-    setProfileData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  /**
+   * Función para crear documento de usuario si no existe
+   */
+  const ensureUserDocument = async () => {
+    try {
+      console.log('🔄 Verificando documento de usuario...');
+      
+      const userDocRef = doc(database, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        console.log('📝 Documento no existe, creando...');
+        
+        await setDoc(userDocRef, {
+          nombre: '',
+          tituloUniversitario: '',
+          anoGraduacion: '',
+          email: user.email,
+          createdAt: new Date().toISOString(),
+        });
+        
+        console.log('✅ Documento de usuario creado');
+      }
+      
+      return userDoc;
+    } catch (error) {
+      console.error('❌ Error verificando/creando documento:', error);
+      throw error;
+    }
   };
 
-  // Función para actualizar campos de contraseña
-  const updatePasswordField = (field, value) => {
-    setPasswordData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  /**
+   * Función para cargar datos del usuario
+   */
+  const fetchUserData = async () => {
+    if (!user) {
+      setInitialLoading(false);
+      return;
+    }
+
+    console.log('🔄 Cargando datos del usuario:', user.uid);
+    
+    try {
+      // 1. Establecer conexión
+      const connected = await establishConnection();
+      if (!connected) {
+        throw new Error('Sin conexión a Firebase');
+      }
+      
+      // 2. Verificar/crear documento
+      const userDoc = await ensureUserDocument();
+      
+      // 3. Cargar datos
+      const freshDoc = await getDoc(doc(database, 'users', user.uid));
+      
+      if (freshDoc.exists()) {
+        const data = freshDoc.data();
+        console.log('✅ Datos cargados:', data);
+        
+        setProfileData({
+          nombre: data.nombre || '',
+          tituloUniversitario: data.tituloUniversitario || '',
+          anoGraduacion: data.anoGraduacion || '',
+        });
+        
+        setError(null);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error cargando datos:', error);
+      setError(`Error: ${error.message}`);
+    } finally {
+      setInitialLoading(false);
+    }
   };
 
-  // Función para validar el formulario de perfil
-  const validateProfileForm = () => {
+  /**
+   * Función para actualizar perfil
+   */
+  const handleUpdateProfile = async () => {
     const { nombre, tituloUniversitario, anoGraduacion } = profileData;
 
-    if (!nombre.trim() || !tituloUniversitario.trim() || !anoGraduacion.trim()) {
-      Alert.alert('Error', 'Por favor complete todos los campos');
-      return false;
+    if (!nombre || !tituloUniversitario || !anoGraduacion) {
+      Alert.alert('Error', 'Complete todos los campos');
+      return;
     }
 
     const currentYear = new Date().getFullYear();
     const graduationYear = parseInt(anoGraduacion);
     if (isNaN(graduationYear) || graduationYear < 1950 || graduationYear > currentYear + 10) {
-      Alert.alert('Error', 'Por favor ingrese un año de graduación válido');
-      return false;
+      Alert.alert('Error', 'Año de graduación inválido');
+      return;
     }
-
-    return true;
-  };
-
-  // Función para validar el formulario de contraseña
-  const validatePasswordForm = () => {
-    const { currentPassword, newPassword, confirmPassword } = passwordData;
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Por favor complete todos los campos de contraseña');
-      return false;
-    }
-
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Las nuevas contraseñas no coinciden');
-      return false;
-    }
-
-    if (newPassword.length < 6) {
-      Alert.alert('Error', 'La nueva contraseña debe tener al menos 6 caracteres');
-      return false;
-    }
-
-    if (currentPassword === newPassword) {
-      Alert.alert('Error', 'La nueva contraseña debe ser diferente a la actual');
-      return false;
-    }
-
-    return true;
-  };
-
-  // Función para actualizar el perfil del usuario
-  const handleUpdateProfile = async () => {
-    if (!validateProfileForm()) return;
 
     setLoading(true);
+    
     try {
-      await updateDoc(doc(database, 'users', user.uid), {
-        nombre: profileData.nombre.trim(),
-        tituloUniversitario: profileData.tituloUniversitario.trim(),
-        anoGraduacion: parseInt(profileData.anoGraduacion),
+      // Verificar conexión antes de actualizar
+      const connected = await establishConnection();
+      if (!connected) {
+        throw new Error('Sin conexión para actualizar');
+      }
+
+      const userDocRef = doc(database, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        nombre,
+        tituloUniversitario,
+        anoGraduacion,
         updatedAt: new Date().toISOString(),
       });
 
       Alert.alert('Éxito', 'Perfil actualizado correctamente');
+      setError(null);
+      
     } catch (error) {
-      console.error('Error al actualizar perfil:', error);
-      Alert.alert('Error', 'No se pudo actualizar el perfil');
+      console.error('❌ Error actualizando perfil:', error);
+      Alert.alert('Error', `No se pudo actualizar: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para cambiar la contraseña
-  const handleChangePassword = async () => {
-    if (!validatePasswordForm()) return;
-
-    setLoading(true);
+  /**
+   * Función para cerrar sesión
+   */
+  const handleLogout = async () => {
     try {
-      // Reautenticar usuario
-      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
-      await reauthenticateWithCredential(user, credential);
-
-      // Actualizar contraseña
-      await updatePassword(user, passwordData.newPassword);
-
-      // Limpiar formulario
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
-
-      Alert.alert('Éxito', 'Contraseña actualizada correctamente');
+      await signOut(auth);
     } catch (error) {
-      console.error('Error al cambiar contraseña:', error);
-      let errorMessage = 'Error al cambiar la contraseña';
-      
-      switch (error.code) {
-        case 'auth/wrong-password':
-          errorMessage = 'La contraseña actual es incorrecta';
-          break;
-        case 'auth/weak-password':
-          errorMessage = 'La nueva contraseña es muy débil';
-          break;
-        case 'auth/requires-recent-login':
-          errorMessage = 'Por seguridad, debe cerrar sesión e iniciar sesión nuevamente';
-          break;
-        default:
-          errorMessage = 'Error al actualizar la contraseña. Intente nuevamente';
-      }
-      
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
+      console.error('Error cerrando sesión:', error);
+      Alert.alert('Error', 'No se pudo cerrar la sesión');
     }
   };
 
-  // Función para cerrar sesión
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Está seguro que desea cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-            } catch (error) {
-              console.error('Error al cerrar sesión:', error);
-              Alert.alert('Error', 'No se pudo cerrar la sesión');
-            }
-          },
-        },
-      ]
-    );
+  /**
+   * Función para reintentar conexión
+   */
+  const retryConnection = () => {
+    setInitialLoading(true);
+    fetchUserData();
   };
 
   useEffect(() => {
-    if (user) {
-      fetchUserData();
-    }
+    console.log('🚀 ProfileScreen iniciado');
+    fetchUserData();
   }, [user]);
 
-  if (dataLoading) {
+  // Pantalla de carga
+  if (initialLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <Text style={styles.loadingText}>Cargando datos del usuario...</Text>
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#0288d1" />
+        <Text style={styles.statusText}>
+          {connectionStatus === 'checking' && 'Verificando conexión...'}
+          {connectionStatus === 'connecting' && 'Conectando con Firebase...'}
+          {connectionStatus === 'connected' && 'Cargando datos...'}
+          {connectionStatus === 'failed' && 'Error de conexión'}
+        </Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Mi Perfil</Text>
-          <Text style={styles.subtitle}>Gestiona tu información personal</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Mi Perfil</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Estado de conexión */}
+      <View style={styles.statusContainer}>
+        <Text style={styles.statusText}>
+          Estado: {connectionStatus === 'connected' ? '🟢 Conectado' : '🔴 Desconectado'}
+        </Text>
+        <Text style={styles.userText}>Usuario: {user?.email}</Text>
+      </View>
+
+      {/* Errores */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={retryConnection}>
+            <Text style={styles.retryText}>🔄 Reintentar</Text>
           </TouchableOpacity>
         </View>
+      )}
 
-        {/* Información del usuario */}
-        <View style={styles.userInfo}>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-          <Text style={styles.userName}>{profileData.nombre || 'Nombre no disponible'}</Text>
+      {/* Formulario */}
+      <View style={styles.form}>
+        <Text style={styles.sectionTitle}>Información Personal</Text>
+        
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Nombre completo:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Su nombre completo"
+            value={profileData.nombre}
+            onChangeText={(value) => setProfileData(prev => ({...prev, nombre: value}))}
+            editable={connectionStatus === 'connected'}
+          />
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
-            onPress={() => setActiveTab('profile')}
-          >
-            <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
-              Información Personal
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'password' && styles.activeTab]}
-            onPress={() => setActiveTab('password')}
-          >
-            <Text style={[styles.tabText, activeTab === 'password' && styles.activeTabText]}>
-              Cambiar Contraseña
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Título universitario:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: Ingeniero en Sistemas"
+            value={profileData.tituloUniversitario}
+            onChangeText={(value) => setProfileData(prev => ({...prev, tituloUniversitario: value}))}
+            editable={connectionStatus === 'connected'}
+          />
         </View>
 
-        {/* Contenido del tab activo */}
-        {activeTab === 'profile' ? (
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nombre completo:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ingrese su nombre completo"
-                value={profileData.nombre}
-                onChangeText={(value) => updateProfileField('nombre', value)}
-                autoCapitalize="words"
-              />
-            </View>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Año de graduación:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: 2020"
+            value={profileData.anoGraduacion}
+            onChangeText={(value) => setProfileData(prev => ({...prev, anoGraduacion: value}))}
+            keyboardType="numeric"
+            maxLength={4}
+            editable={connectionStatus === 'connected'}
+          />
+        </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Título universitario:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Ingeniero en Sistemas"
-                value={profileData.tituloUniversitario}
-                onChangeText={(value) => updateProfileField('tituloUniversitario', value)}
-                autoCapitalize="words"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Año de graduación:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: 2020"
-                value={profileData.anoGraduacion}
-                onChangeText={(value) => updateProfileField('anoGraduacion', value)}
-                keyboardType="numeric"
-                maxLength={4}
-              />
-            </View>
-
-            <View style={styles.emailContainer}>
-              <Text style={styles.emailLabel}>Correo electrónico:</Text>
-              <Text style={styles.emailValue}>{user?.email}</Text>
-              <Text style={styles.emailNote}>
-                El correo electrónico no se puede modificar
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.updateButton, loading && styles.buttonDisabled]}
-              onPress={handleUpdateProfile}
-              disabled={loading}
-            >
-              <Text style={styles.updateButtonText}>
-                {loading ? 'Actualizando...' : 'Actualizar Perfil'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Contraseña actual:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ingrese su contraseña actual"
-                value={passwordData.currentPassword}
-                onChangeText={(value) => updatePasswordField('currentPassword', value)}
-                secureTextEntry={true}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nueva contraseña:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Mínimo 6 caracteres"
-                value={passwordData.newPassword}
-                onChangeText={(value) => updatePasswordField('newPassword', value)}
-                secureTextEntry={true}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirmar nueva contraseña:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Repita la nueva contraseña"
-                value={passwordData.confirmPassword}
-                onChangeText={(value) => updatePasswordField('confirmPassword', value)}
-                secureTextEntry={true}
-              />
-            </View>
-
-            <View style={styles.passwordNote}>
-              <Text style={styles.passwordNoteText}>
-                • La contraseña debe tener al menos 6 caracteres{'\n'}
-                • Debe ser diferente a la contraseña actual
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.updateButton, loading && styles.buttonDisabled]}
-              onPress={handleChangePassword}
-              disabled={loading}
-            >
-              <Text style={styles.updateButtonText}>
-                {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        <TouchableOpacity
+          style={[styles.updateButton, (loading || connectionStatus !== 'connected') && styles.buttonDisabled]}
+          onPress={handleUpdateProfile}
+          disabled={loading || connectionStatus !== 'connected'}
+        >
+          <Text style={styles.updateButtonText}>
+            {loading ? 'Actualizando...' : 'Actualizar Perfil'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
   },
-  loadingContainer: {
+  centerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 20,
-    paddingTop: 50,
+    backgroundColor: '#f5f5f5',
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
     marginBottom: 15,
   },
   logoutButton: {
@@ -431,79 +336,59 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: 'white',
     fontWeight: '600',
-    fontSize: 14,
   },
-  userInfo: {
+  statusContainer: {
     backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  userEmail: {
+  statusText: {
     fontSize: 16,
-    color: '#666',
+    fontWeight: '600',
     marginBottom: 5,
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 8,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  activeTab: {
-    backgroundColor: '#0288d1',
-    borderRadius: 8,
-  },
-  tabText: {
+  userText: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
-    textAlign: 'center',
   },
-  activeTabText: {
-    color: 'white',
+  errorContainer: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffeaa7',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#856404',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: '#ffc107',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  retryText: {
+    color: '#856404',
     fontWeight: '600',
   },
   form: {
     backgroundColor: 'white',
     padding: 20,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
     marginBottom: 15,
@@ -523,46 +408,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff',
   },
-  emailContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  emailLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-    marginBottom: 5,
-  },
-  emailValue: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  emailNote: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  passwordNote: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  passwordNoteText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
   updateButton: {
     backgroundColor: '#0288d1',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 20,
   },
   buttonDisabled: {
     backgroundColor: '#cccccc',
